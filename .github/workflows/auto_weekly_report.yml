@@ -2,10 +2,12 @@ name: Weekly Progress Report Auto-Commit
 
 on:
   schedule:
-    # Runs every Thursday at 11:59 PM IST (which corresponds to 18:29 UTC)
-    # Cron format: min hour day-of-month month day-of-week (4 = Thursday)
+    # Runs every Thursday at 11:59 PM IST
+    # 18:29 UTC = 11:59 PM IST
     - cron: '29 18 * * 4'
-  workflow_dispatch: # Allows manual trigger anytime from the Actions tab
+
+  # Allows manual trigger from GitHub Actions
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,6 +15,7 @@ permissions:
 jobs:
   generate-and-commit:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository with Full Git History
         uses: actions/checkout@v4
@@ -37,8 +40,10 @@ jobs:
         run: |
           mkdir -p weekly_reports
           mv *_Weekly_Progress_Report_Form-3_*.pdf weekly_reports/
+
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
           git add weekly_reports/
 
           if git diff --staged --quiet; then
@@ -46,4 +51,4 @@ jobs:
           else
             git commit -m "docs: archive Form-3 weekly progress report [skip ci]"
             git push
-       git commit -m "ci: add automated Form-3 weekly reporting workflow"   fi
+          fi
