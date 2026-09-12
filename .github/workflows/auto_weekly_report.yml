@@ -1,5 +1,3 @@
-
-
 name: Weekly Progress Report Auto-Commit
 
 on:
@@ -48,4 +46,4 @@ jobs:
           else
             git commit -m "docs: archive Form-3 weekly progress report [skip ci]"
             git push
-          fi
+       git commit -m "ci: add automated Form-3 weekly reporting workflow"   fi
