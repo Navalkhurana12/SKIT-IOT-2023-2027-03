@@ -612,7 +612,7 @@ function App() {
         </div>
       </section>
 
-      {/* ================= FOOTER ================= */}
+      {/* ================= FOOTER =================
 
       <footer className="bg-[#102C57] px-5 py-8 text-white sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-4 text-center text-xs text-blue-100 sm:flex-row sm:text-left">
@@ -628,7 +628,7 @@ function App() {
             Innovating for a Smarter Tomorrow
           </p>
         </div>
-      </footer>
+      </footer> */}
 
     </div>
   );
