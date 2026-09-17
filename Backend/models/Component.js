@@ -21,7 +21,7 @@ const componentSchema = new mongoose.Schema(
 
     minStock: {
       type: Number,
-      default: 5
+      default: 2
     },
 
     location: {
