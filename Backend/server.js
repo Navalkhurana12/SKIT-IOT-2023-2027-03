@@ -1,9 +1,9 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config({ override: true });
 
 const componentRoutes = require("./routes/componentRoutes");
+const authRoutes = require("./routes/authRoutes");
 const { MongodbConfig } = require("./config/db");
 
 const app = express();
@@ -20,11 +20,11 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/components", componentRoutes);
-
+app.use("/api/auth", authRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  MongodbConfig();
-  console.log(`The server is running on PORT ${PORT}`)
-});
 
+app.listen(PORT, () => {
+  console.log(`The server is running on PORT ${PORT}`);
+  MongodbConfig();
+});
