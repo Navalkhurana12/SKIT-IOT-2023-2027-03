@@ -2,10 +2,12 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config({ override: true });
 
+
+
 const componentRoutes = require("./routes/componentRoutes");
 const authRoutes = require("./routes/authRoutes");
 const { MongodbConfig } = require("./config/db");
-
+const cloudinary = require("./config/cloudinary");
 const app = express();
 
 // Middleware
