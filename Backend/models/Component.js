@@ -10,23 +10,26 @@ const componentSchema = new mongoose.Schema(
 
     category: {
       type: String,
-      required: true
+      required: true,
+      trim: true
     },
 
     quantity: {
       type: Number,
       required: true,
-      default: 0
+      min: 0
     },
 
     minStock: {
       type: Number,
-      default: 2
+      required: true,
+      min: 0
     },
 
     location: {
       type: String,
-      default: "IoT Lab"
+      default: "IoT Lab",
+      trim: true
     },
 
     description: {
@@ -37,11 +40,11 @@ const componentSchema = new mongoose.Schema(
     image: {
       url: {
         type: String,
-        default: ""
+        required: true,
       },
       publicId: {
         type: String,
-        default: ""
+        required: true,
       }
     }
   },
