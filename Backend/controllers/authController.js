@@ -1,7 +1,11 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const sendOTPEmail = require("../utils/sendEmail");
 
-// Generate JWT
+// ======================================================
+// GENERATE JWT
+// ======================================================
+
 const generateToken = (userId, role) => {
   return jwt.sign(
     {
@@ -15,6 +19,9 @@ const generateToken = (userId, role) => {
   );
 };
 
+// ======================================================
+// SEND TOKEN IN COOKIE
+// ======================================================
 
 const sendToken = (res, userId, role) => {
   const token = generateToken(userId, role);
@@ -30,11 +37,19 @@ const sendToken = (res, userId, role) => {
   return token;
 };
 
-
+// ======================================================
+// SIGNUP
+// ======================================================
 
 const signup = async (req, res) => {
   try {
-    const { name, rollNo, email, password, avatar } = req.body;
+    const {
+      name,
+      rollNo,
+      email,
+      password,
+      avatar,
+    } = req.body;
 
     // Check required fields
     if (!name || !rollNo || !email || !password) {
@@ -75,6 +90,16 @@ const signup = async (req, res) => {
       });
     }
 
+    // Generate 6 digit OTP
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    // OTP expires in 10 minutes
+    const otpExpires = new Date(
+      Date.now() + 10 * 60 * 1000
+    );
+
     // Create user
     const user = await User.create({
       name: name.trim(),
@@ -82,24 +107,25 @@ const signup = async (req, res) => {
       email: normalizedEmail,
       password,
       avatar: avatar || "",
+
+      // User can never choose admin during signup
       role: "user",
+
       isVerified: false,
+
+      otp,
+      otpExpires,
     });
+
+    // Send OTP to SKIT email
+    await sendOTPEmail(normalizedEmail, otp);
 
     return res.status(201).json({
       success: true,
       message:
-        "Account created successfully. Please verify your email.",
-      user: {
-        id: user._id,
-        name: user.name,
-        rollNo: user.rollNo,
-        email: user.email,
-        avatar: user.avatar,
-        role: user.role,
-        isVerified: user.isVerified,
-      },
+        "Account created. OTP sent to your college email.",
     });
+
   } catch (error) {
     console.error("Signup Error:", error);
 
@@ -110,26 +136,113 @@ const signup = async (req, res) => {
   }
 };
 
-// =======================
-// LOGIN
-// =======================
+// ======================================================
+// VERIFY OTP
+// ======================================================
 
-const login = async (req, res) => {
+const verifyOTP = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, otp } = req.body;
 
-    if (!email || !password || !role) {
+    // Check required fields
+    if (!email || !otp) {
       return res.status(400).json({
         success: false,
-        message: "Email, password and role are required",
+        message: "Email and OTP are required",
       });
     }
 
-    // =======================
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // OTP and otpExpires have select:false
+    // so explicitly select them
+    const user = await User.findOne({
+      email: normalizedEmail,
+    }).select("+otp +otpExpires");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Already verified
+    if (user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified",
+      });
+    }
+
+    // Check OTP expiry
+    if (
+      !user.otpExpires ||
+      user.otpExpires < new Date()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired",
+      });
+    }
+
+    // Check OTP
+    if (user.otp !== otp.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    // OTP correct
+    user.isVerified = true;
+
+    // Remove OTP after successful verification
+    user.otp = undefined;
+    user.otpExpires = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully",
+    });
+
+  } catch (error) {
+    console.error("OTP Verification Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error during OTP verification",
+    });
+  }
+};
+
+// ======================================================
+// LOGIN
+// ======================================================
+
+const login = async (req, res) => {
+  try {
+    const {
+      email,
+      password,
+      role,
+    } = req.body;
+
+    // ==================================================
     // ADMIN LOGIN
-    // =======================
+    // ==================================================
 
     if (role === "admin") {
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "Email and password are required",
+        });
+      }
+
       if (
         email !== process.env.ADMIN_ID ||
         password !== process.env.ADMIN_PASSWORD
@@ -155,21 +268,21 @@ const login = async (req, res) => {
       });
     }
 
-    // =======================
-    // USER LOGIN
-    // =======================
+    // ==================================================
+    // NORMAL USER LOGIN
+    // ==================================================
 
-    if (role !== "user") {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Invalid role",
+        message: "Email and password are required",
       });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
 
     // Password is select:false in User.js
-    // So we explicitly select it
+    // So explicitly select it
     const user = await User.findOne({
       email: normalizedEmail,
     }).select("+password");
@@ -178,6 +291,14 @@ const login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
+      });
+    }
+
+    // Make sure this is a normal user
+    if (user.role !== "user") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid login credentials",
       });
     }
 
@@ -192,11 +313,12 @@ const login = async (req, res) => {
       });
     }
 
-    // Email verification check
+    // Check email verification
     if (!user.isVerified) {
       return res.status(403).json({
         success: false,
-        message: "Please verify your college email first",
+        message:
+          "Please verify your college email first",
       });
     }
 
@@ -220,6 +342,7 @@ const login = async (req, res) => {
         isVerified: user.isVerified,
       },
     });
+
   } catch (error) {
     console.error("Login Error:", error);
 
@@ -230,13 +353,16 @@ const login = async (req, res) => {
   }
 };
 
-// =======================
+// ======================================================
 // GET CURRENT USER
-// =======================
+// ======================================================
 
 const getMe = async (req, res) => {
   try {
-    // Admin
+    // ==================================================
+    // ADMIN
+    // ==================================================
+
     if (req.user.role === "admin") {
       return res.status(200).json({
         success: true,
@@ -250,7 +376,10 @@ const getMe = async (req, res) => {
       });
     }
 
-    // Normal user
+    // ==================================================
+    // NORMAL USER
+    // ==================================================
+
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -272,6 +401,7 @@ const getMe = async (req, res) => {
         isVerified: user.isVerified,
       },
     });
+
   } catch (error) {
     console.error("Get Me Error:", error);
 
@@ -282,7 +412,9 @@ const getMe = async (req, res) => {
   }
 };
 
-
+// ======================================================
+// LOGOUT
+// ======================================================
 
 const logout = async (req, res) => {
   res.cookie("token", "", {
@@ -296,10 +428,14 @@ const logout = async (req, res) => {
   });
 };
 
+// ======================================================
+// EXPORT
+// ======================================================
+
 module.exports = {
   signup,
+  verifyOTP,
   login,
   getMe,
   logout,
 };
-
