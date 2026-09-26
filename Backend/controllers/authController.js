@@ -49,17 +49,26 @@ const signup = async (req, res) => {
       email,
       password,
       avatar,
+      phone,
     } = req.body;
 
     // Check required fields
-    if (!name || !rollNo || !email || !password) {
+    if (!name || !rollNo || !email || !password||!phone) {
       return res.status(400).json({
         success: false,
         message:
-          "Please provide name, roll number, email and password",
+          "Please provide name, roll number, email , phone Number and password",
       });
     }
+    const normalizedPhone = phone.trim();
+    const phoneRegex = /^[6-9]\d{9}$/;
 
+    if (!phoneRegex.test(normalizedPhone)) {
+  return res.status(400).json({
+    success: false,
+    message: "Phone number must be 10 digits and start with 6-9",
+  });
+    }
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -79,6 +88,7 @@ const signup = async (req, res) => {
       $or: [
         { email: normalizedEmail },
         { rollNo: normalizedRollNo },
+        {phone: normalizedPhone}
       ],
     });
 
@@ -86,7 +96,7 @@ const signup = async (req, res) => {
       return res.status(409).json({
         success: false,
         message:
-          "User with this email or roll number already exists",
+          "User with this email or roll number or phoneNumber  already exists",
       });
     }
 
@@ -106,6 +116,7 @@ const signup = async (req, res) => {
       rollNo: normalizedRollNo,
       email: normalizedEmail,
       password,
+      phone: normalizedPhone,
       avatar: avatar || "",
 
       // User can never choose admin during signup
