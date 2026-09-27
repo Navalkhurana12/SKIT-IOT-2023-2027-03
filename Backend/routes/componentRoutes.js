@@ -1,30 +1,107 @@
 const express = require("express");
 
-const {
-  getComponents,
-  getComponent,
-  createComponent,
-  updateComponent,
-  deleteComponent
-} = require("../controllers/componentController");
-
 const router = express.Router();
 
+const {
+  addComponent,
+  getAllComponents,
+  getComponentById,
+  updateComponent,
+  deleteComponent,
+  increaseStock,
+  decreaseStock,
+  getLowStockComponents,
+} = require("../controllers/componentController");
 
-// GET all components
-router.get("/", getComponents);
+const { protect } = require("../middleware/authMiddleware");
+const { adminOnly } = require("../middleware/adminMiddleware");
+const upload = require("../middleware/uploadMiddleware");
 
-// GET single component
-router.get("/:id", getComponent);
+// ======================================================
+// ADD COMPONENT
+// ======================================================
 
-// CREATE component
-router.post("/", createComponent);
+router.post(
+  "/",
+  protect,
+  adminOnly,
+  upload.single("image"),
+  addComponent
+);
 
-// UPDATE component
-router.put("/:id", updateComponent);
+// ======================================================
+// GET ALL COMPONENTS
+// ======================================================
 
-// DELETE component
-router.delete("/:id", deleteComponent);
+router.get(
+  "/",
+  protect,
+  getAllComponents
+);
 
+// ======================================================
+// LOW STOCK COMPONENTS
+// ======================================================
+
+router.get(
+  "/low-stock",
+  protect,
+  getLowStockComponents
+);
+
+// ======================================================
+// GET SINGLE COMPONENT
+// ======================================================
+
+router.get(
+  "/:id",
+  protect,
+  getComponentById
+);
+
+// ======================================================
+// UPDATE COMPONENT
+// ======================================================
+
+router.put(
+  "/:id",
+  protect,
+  adminOnly,
+  upload.single("image"),
+  updateComponent
+);
+
+// ======================================================
+// DELETE COMPONENT
+// ======================================================
+
+router.delete(
+  "/:id",
+  protect,
+  adminOnly,
+  deleteComponent
+);
+
+// ======================================================
+// INCREASE STOCK
+// ======================================================
+
+router.patch(
+  "/:id/increase",
+  protect,
+  adminOnly,
+  increaseStock
+);
+
+// ======================================================
+// DECREASE STOCK
+// ======================================================
+
+router.patch(
+  "/:id/decrease",
+  protect,
+  adminOnly,
+  decreaseStock
+);
 
 module.exports = router;
