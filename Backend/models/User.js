@@ -33,6 +33,13 @@ const UserSchema=new mongoose.Schema({
     minlength:6,
     select:false
   },
+  phone:{
+    type:String,
+    required:true,
+    unique:true,
+    trim:true,
+    match:[/^[6-9]\d{9}$/,"Please enter a valid 10 digit phone-number"],
+  },
   avatar:{
     type:String,
     default:"",
