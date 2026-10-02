@@ -5,6 +5,7 @@ require("dotenv").config({ override: true });
 const componentRoutes = require("./routes/componentRoutes");
 const authRoutes = require("./routes/authRoutes");
 const { MongodbConfig } = require("./config/db");
+const issueRequestRoutes = require("./routes/issueRequestRoutes");
 
 const app = express();
 
@@ -21,7 +22,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/components", componentRoutes);
 app.use("/api/auth", authRoutes);
-
+app.use("/api/issue-requests", issueRequestRoutes);
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
