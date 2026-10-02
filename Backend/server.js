@@ -1,32 +1,69 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config({ override: true });
+const IssueRequest = require("../models/IssueRequest");
+const Component = require("../models/Component");
 
+const createIssueRequest = async (req, res) => {
+  try {
+    const { component, quantity, reason } = req.body;
 
+    // Check required fields
+    if (!component || !quantity || !reason) {
+      return res.status(400).json({
+        message: "Component, quantity and reason are required",
+      });
+    }
 
-const componentRoutes = require("./routes/componentRoutes");
-const authRoutes = require("./routes/authRoutes");
-const { MongodbConfig } = require("./config/db");
+    // Find component
+    const componentData = await Component.findById(component);
 
-const app = express();
+    if (!componentData) {
+      return res.status(404).json({
+        message: "Component not found",
+      });
+    }
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+    // Check quantity
+    if (quantity <= 0) {
+      return res.status(400).json({
+        message: "Quantity must be greater than 0",
+      });
+    }
 
-// Routes
-app.get("/", (req, res) => {
-  res.json({
-    message: "IoT Inventory API is running"
-  });
-});
+    // Check available stock
+    if (componentData.quantity < quantity) {
+      return res.status(400).json({
+        message: `Only ${componentData.quantity} components are available`,
+      });
+    }
 
-app.use("/api/components", componentRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/issue-requests", issueRequestRoutes);
-const PORT = process.env.PORT || 5000;
+    // Create issue request
+    const issueRequest = await IssueRequest.create({
+      user: req.user._id,
+      name: req.user.name,
+      rollNo: req.user.rollNo,
+      phone: req.user.phone,
 
-app.listen(PORT, () => {
-  console.log(`The server is running on PORT ${PORT}`);
-  MongodbConfig();
-});
+      component: componentData._id,
+      componentName: componentData.name,
+
+      quantity,
+      reason,
+    });
+
+    res.status(201).json({
+      message: "Issue request submitted successfully",
+      issueRequest,
+    });
+
+  } catch (error) {
+    console.error("Create Issue Request Error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  createIssueRequest,
+};
