@@ -1,69 +1,40 @@
-const IssueRequest = require("../models/IssueRequest");
-const Component = require("../models/Component");
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
 
-const createIssueRequest = async (req, res) => {
-  try {
-    const { component, quantity, reason } = req.body;
+require("dotenv").config({ override: true });
 
-    // Check required fields
-    if (!component || !quantity || !reason) {
-      return res.status(400).json({
-        message: "Component, quantity and reason are required",
-      });
-    }
+const connectDB = require("./config/db");
 
-    // Find component
-    const componentData = await Component.findById(component);
+const authRoutes = require("./routes/authRoutes");
+const componentRoutes = require("./routes/componentRoutes");
+const issueRequestRoutes = require("./routes/issueRequestRoutes");
 
-    if (!componentData) {
-      return res.status(404).json({
-        message: "Component not found",
-      });
-    }
+const app = express();
 
-    // Check quantity
-    if (quantity <= 0) {
-      return res.status(400).json({
-        message: "Quantity must be greater than 0",
-      });
-    }
+// Connect Database
+connectDB();
 
-    // Check available stock
-    if (componentData.quantity < quantity) {
-      return res.status(400).json({
-        message: `Only ${componentData.quantity} components are available`,
-      });
-    }
+// Middleware
+app.use(cookieParser());
+app.use(cors());
+app.use(express.json());
 
-    // Create issue request
-    const issueRequest = await IssueRequest.create({
-      user: req.user._id,
-      name: req.user.name,
-      rollNo: req.user.rollNo,
-      phone: req.user.phone,
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/components", componentRoutes);
+app.use("/api/issue-requests", issueRequestRoutes);
 
-      component: componentData._id,
-      componentName: componentData.name,
+// Root route
+app.get("/", (req, res) => {
+  res.json({
+    message: "IoT Inventory API is running",
+  });
+});
 
-      quantity,
-      reason,
-    });
+// Server
+const PORT = process.env.PORT || 8000;
 
-    res.status(201).json({
-      message: "Issue request submitted successfully",
-      issueRequest,
-    });
-
-  } catch (error) {
-    console.error("Create Issue Request Error:", error);
-
-    res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
-  }
-};
-
-module.exports = {
-  createIssueRequest,
-};
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

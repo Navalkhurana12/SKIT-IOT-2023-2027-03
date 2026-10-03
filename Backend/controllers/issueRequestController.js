@@ -64,6 +64,28 @@ const createIssueRequest = async (req, res) => {
   }
 };
 
+const getAllIssueRequests=async(req,res)=>{
+  try{
+    const requests=await IssueRequest.find()
+    .populate("user","name rollNo email phone")
+    .populate("component","name categroy quantity");
+    
+    res.status(200).json({
+      message:"Issue requests fetched succesfully",
+      requests,
+    });
+
+  }
+  catch(error){
+    console.error("Get Issue Requests Error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+}
 module.exports = {
   createIssueRequest,
+  getAllIssueRequests,
 };
