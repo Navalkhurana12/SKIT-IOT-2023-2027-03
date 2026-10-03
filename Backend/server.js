@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 require("dotenv").config({ override: true });
 
 const componentRoutes = require("./routes/componentRoutes");
@@ -10,6 +11,7 @@ const issueRequestRoutes = require("./routes/issueRequestRoutes");
 const app = express();
 
 // Middleware
+app.use(cookieParser());
 app.use(cors());
 app.use(express.json());
 
