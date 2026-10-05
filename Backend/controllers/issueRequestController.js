@@ -63,7 +63,29 @@ const createIssueRequest = async (req, res) => {
     });
   }
 };
+const getAllIssueRequests = async (req, res) => {
+  try {
+    const requests = await IssueRequest.find()
+      .populate("component", "name category quantity")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Issue requests fetched successfully",
+      requests,
+    });
+
+  } catch (error) {
+    console.error("Get Issue Requests Error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   createIssueRequest,
+   getAllIssueRequests,
 };
