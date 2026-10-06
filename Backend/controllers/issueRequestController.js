@@ -84,9 +84,10 @@ const getAllIssueRequests=async(req,res)=>{
       error: error.message,
     });
   }
-}
+};
+
+
 module.exports = {
   createIssueRequest,
-  getAllIssueRequests,
-
+   getAllIssueRequests,
 };
