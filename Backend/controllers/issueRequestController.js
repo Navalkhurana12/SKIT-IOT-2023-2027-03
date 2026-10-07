@@ -235,11 +235,39 @@ const returnIssueRequest= async(req,res)=>{
       error:error.message,
     })
   }
+  
 }
+const getOverdueIssueRequests = async (req, res) => {
+  try {
+    const today = new Date();
+
+    const overdueRequests = await IssueRequest.find({
+      status: "approved",
+      dueDate: { $lt: today },
+    })
+      .populate("component", "name category quantity")
+      .sort({ dueDate: 1 });
+
+    res.status(200).json({
+      message: "Overdue issue requests fetched successfully",
+      count: overdueRequests.length,
+      requests: overdueRequests,
+    });
+
+  } catch (error) {
+    console.error("Get Overdue Issue Requests Error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   createIssueRequest,
    getAllIssueRequests,
    approveIssueRequest,
    rejectIssueRequest,
     returnIssueRequest,
+    getOverdueIssueRequests,
 };
