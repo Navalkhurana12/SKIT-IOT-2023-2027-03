@@ -236,10 +236,11 @@ const returnIssueRequest= async(req,res)=>{
     })
   }
 }
+
 module.exports = {
   createIssueRequest,
    getAllIssueRequests,
    approveIssueRequest,
    rejectIssueRequest,
-    returnIssueRequest,
+   returnIssueRequest,
 };
