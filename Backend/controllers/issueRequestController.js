@@ -1,37 +1,71 @@
 const IssueRequest = require("../models/IssueRequest");
 const Component = require("../models/Component");
 
+// ================= CREATE ISSUE REQUEST =================
 const createIssueRequest = async (req, res) => {
   try {
-    const { component, quantity, reason } = req.body;
+    const { items, reason } = req.body;
 
-    // Check required fields
-    if (!component || !quantity || !reason) {
+    if (!Array.isArray(items) || items.length === 0 || !reason) {
       return res.status(400).json({
-        message: "Component, quantity and reason are required",
+        message: "Items and reason are required",
       });
     }
 
-    // Find component
-    const componentData = await Component.findById(component);
+    const validatedItems = [];
+    const componentIds = new Set();
 
-    if (!componentData) {
-      return res.status(404).json({
-        message: "Component not found",
-      });
-    }
+    for (const item of items) {
+      const { component, quantity } = item;
 
-    // Check quantity
-    if (quantity <= 0) {
-      return res.status(400).json({
-        message: "Quantity must be greater than 0",
-      });
-    }
+      // Check component and quantity
+      if (!component || quantity === undefined) {
+        return res.status(400).json({
+          message: "Component and quantity are required for every item",
+        });
+      }
 
-    // Check available stock
-    if (componentData.quantity < quantity) {
-      return res.status(400).json({
-        message: `Only ${componentData.quantity} components are available`,
+      // Quantity must be positive integer
+      if (
+        typeof quantity !== "number" ||
+        !Number.isInteger(quantity) ||
+        quantity <= 0
+      ) {
+        return res.status(400).json({
+          message: "Quantity must be a positive integer",
+        });
+      }
+
+      // Prevent duplicate component in cart
+      if (componentIds.has(component.toString())) {
+        return res.status(400).json({
+          message: "Same component cannot be added multiple times",
+        });
+      }
+
+      componentIds.add(component.toString());
+
+      // Find component
+      const componentData = await Component.findById(component);
+
+      if (!componentData) {
+        return res.status(404).json({
+          message: "Component not found",
+        });
+      }
+
+      // Check stock
+      if (componentData.quantity < quantity) {
+        return res.status(400).json({
+          message: `Only ${componentData.quantity} ${componentData.name} are available`,
+        });
+      }
+
+      // Save snapshot
+      validatedItems.push({
+        component: componentData._id,
+        componentName: componentData.name,
+        quantity: quantity,
       });
     }
 
@@ -41,114 +75,136 @@ const createIssueRequest = async (req, res) => {
       name: req.user.name,
       rollNo: req.user.rollNo,
       phone: req.user.phone,
-
-      component: componentData._id,
-      componentName: componentData.name,
-
-      quantity,
-      reason,
+      items: validatedItems,
+      reason: reason.trim(),
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Issue request submitted successfully",
       issueRequest,
     });
-
   } catch (error) {
     console.error("Create Issue Request Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
 };
+
+
+// ================= GET ALL ISSUE REQUESTS =================
 const getAllIssueRequests = async (req, res) => {
   try {
     const requests = await IssueRequest.find()
-      .populate("component", "name category quantity")
+      .populate("items.component", "name category quantity")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Issue requests fetched successfully",
       requests,
     });
-
   } catch (error) {
     console.error("Get Issue Requests Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
 };
-const approveIssueRequest=async(req,res)=>{
-  try{
-    const{id}=req.params;
-    const issueRequest=await IssueRequest.findById(id);
 
 
-     if (!issueRequest) {
+// ================= APPROVE ISSUE REQUEST =================
+const approveIssueRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const issueRequest = await IssueRequest.findById(id);
+
+    if (!issueRequest) {
       return res.status(404).json({
         message: "Issue request not found",
       });
     }
-    if(issueRequest.status!=="pending"){
+
+    // Only pending request can be approved
+    if (issueRequest.status !== "pending") {
       return res.status(400).json({
-        message:`request is already ${issueRequest.status}`,
+        message: `Request is already ${issueRequest.status}`,
       });
     }
 
-    const component=await Component.findById(issueRequest.component);
+    // ================= CHECK ALL STOCK FIRST =================
 
-    if(!component){
-      return res.status(404).json({
-        message:"component not found",
-      })
-    }
-    if (component.quantity < issueRequest.quantity) {
-      return res.status(400).json({
-        message: `Only ${component.quantity} components are available`,
+    const components = [];
+
+    for (const item of issueRequest.items) {
+      const component = await Component.findById(item.component);
+
+      if (!component) {
+        return res.status(404).json({
+          message: `${item.componentName} not found`,
+        });
+      }
+
+      if (component.quantity < item.quantity) {
+        return res.status(400).json({
+          message: `Only ${component.quantity} ${component.name} are available`,
+        });
+      }
+
+      components.push({
+        component,
+        quantity: item.quantity,
       });
     }
-     
-    component.quantity -= issueRequest.quantity;
-    await component.save();
 
-    const now=new Date();
-    
-    const dueDate=new Date();
-    dueDate.setDate(dueDate.getDate()+30);
+    // ================= DEDUCT STOCK =================
 
-    issueRequest.status="approved";
-    issueRequest.approvedAt=now;
+    for (const item of components) {
+      item.component.quantity -= item.quantity;
+
+      await item.component.save();
+    }
+
+    // ================= UPDATE REQUEST =================
+
+    const now = new Date();
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    issueRequest.status = "approved";
+    issueRequest.approvedAt = now;
     issueRequest.approvedBy = req.user._id;
     issueRequest.issuedAt = now;
     issueRequest.dueDate = dueDate;
 
     await issueRequest.save();
-     res.status(200).json({
+
+    return res.status(200).json({
       message: "Issue request approved successfully",
       issueRequest,
     });
-  }
-  catch(error){
+  } catch (error) {
     console.error("Approve Issue Request Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
-}
+};
 
+
+// ================= REJECT ISSUE REQUEST =================
 const rejectIssueRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const { rejectionReason } = req.body;
 
-    // Find request
     const issueRequest = await IssueRequest.findById(id);
 
     if (!issueRequest) {
@@ -164,111 +220,137 @@ const rejectIssueRequest = async (req, res) => {
       });
     }
 
-    // Rejection reason required
-    if (!rejectionReason || !rejectionReason.trim()) {
+    // Check rejection reason
+    if (
+      typeof rejectionReason !== "string" ||
+      !rejectionReason.trim()
+    ) {
       return res.status(400).json({
         message: "Rejection reason is required",
       });
     }
 
-    // Update request
     issueRequest.status = "rejected";
     issueRequest.rejectedAt = new Date();
     issueRequest.rejectionReason = rejectionReason.trim();
 
     await issueRequest.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Issue request rejected successfully",
       issueRequest,
     });
-
   } catch (error) {
     console.error("Reject Issue Request Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
 };
-const returnIssueRequest= async(req,res)=>{
-  try{
-    const {id}=req.params;
 
-    const issueRequest=await IssueRequest.findById(id);
-    if(!issueRequest){
+
+// ================= RETURN ISSUE REQUEST =================
+const returnIssueRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const issueRequest = await IssueRequest.findById(id);
+
+    if (!issueRequest) {
       return res.status(404).json({
-        message:"Issue request not found",
+        message: "Issue request not found",
       });
     }
-    if(issueRequest.status!=="approved"){
+
+    // Only approved request can be returned
+    if (issueRequest.status !== "approved") {
       return res.status(400).json({
-        message:`Request cannot be returned because it is ${issueRequest.status}`,
+        message: `Request cannot be returned because it is ${issueRequest.status}`,
       });
     }
-    const component = await Component.findById(issueRequest.component);
 
-    if(!component){
-      return res.status(404).json({
-        message:"component not found"
-      })
+    const components = [];
+
+    // Find every component first
+    for (const item of issueRequest.items) {
+      const component = await Component.findById(item.component);
+
+      if (!component) {
+        return res.status(404).json({
+          message: `${item.componentName} not found`,
+        });
+      }
+
+      components.push({
+        component,
+        quantity: item.quantity,
+      });
     }
-    component.quantity+=issueRequest.quantity;
 
-     await component.save();
+    // Add stock back
+    for (const item of components) {
+      item.component.quantity += item.quantity;
 
-     issueRequest.status="returned";
-     issueRequest.returnedAt=new Date();
+      await item.component.save();
+    }
 
-     await issueRequest.save();
-     return res.status(200).json({
-      message:"Component returned successfully",
+    // Update request
+    issueRequest.status = "returned";
+    issueRequest.returnedAt = new Date();
+
+    await issueRequest.save();
+
+    return res.status(200).json({
+      message: "All components returned successfully",
       issueRequest,
-     });
+    });
+  } catch (error) {
+    console.error("Return Issue Request Error:", error);
 
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
-  catch(error){
-    console.error("return Issue request error",error);
-    res.status(500).json({
-      message:"Server error",
-      error:error.message,
-    })
-  }
-  
 }
-
 const getOverdueIssueRequests = async (req, res) => {
   try {
     const today = new Date();
 
     const overdueRequests = await IssueRequest.find({
       status: "approved",
-      dueDate: { $lt: today },
+      dueDate: {
+        $lt: today,
+      },
     })
-      .populate("component", "name category quantity")
+      .populate("items.component", "name category quantity")
       .sort({ dueDate: 1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Overdue issue requests fetched successfully",
       count: overdueRequests.length,
       requests: overdueRequests,
     });
-
   } catch (error) {
     console.error("Get Overdue Issue Requests Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
 };
+
+
+// ================= EXPORT =================
+
 module.exports = {
   createIssueRequest,
-   getAllIssueRequests,
-   approveIssueRequest,
-   rejectIssueRequest,
-    returnIssueRequest,
-    getOverdueIssueRequests,
+  getAllIssueRequests,
+  approveIssueRequest,
+  rejectIssueRequest,
+  returnIssueRequest,
+  getOverdueIssueRequests,
 };
