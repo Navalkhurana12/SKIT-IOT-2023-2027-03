@@ -29,25 +29,27 @@ const IssueRequestSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Component being requested
-    component: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Component",
-      required: true,
-    },
+items: [
+      {
+        component: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Component",
+          required: true,
+        },
 
-    componentName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        componentName: {
+          type: String,
+          required: true,
+          trim: true,
+        },
 
-    // Number of components requested
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+      },
+    ],
 
     // Why user needs the component
     reason: {
