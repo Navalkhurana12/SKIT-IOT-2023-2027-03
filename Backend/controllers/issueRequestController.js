@@ -1,75 +1,120 @@
+
+const mongoose = require("mongoose");
 const IssueRequest = require("../models/IssueRequest");
 const Component = require("../models/Component");
 
+// ================= CUSTOM ERROR =================
+
+class AppError extends Error {
+  constructor(message, statusCode = 500) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
 // ================= CREATE ISSUE REQUEST =================
+
 const createIssueRequest = async (req, res) => {
   try {
     const { items, reason } = req.body;
 
-    if (!Array.isArray(items) || items.length === 0 || !reason) {
-      return res.status(400).json({
-        message: "Items and reason are required",
-      });
+    if (
+      !Array.isArray(items) ||
+      items.length === 0 ||
+      typeof reason !== "string" ||
+      !reason.trim()
+    ) {
+      throw new AppError(
+        "Items and a valid reason are required",
+        400
+      );
+    }
+
+    if (items.length > 50) {
+      throw new AppError(
+        "Maximum 50 different components allowed",
+        400
+      );
+    }
+
+    if (!req.user || !req.user._id) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    if (
+      !req.user.name ||
+      !req.user.rollNo ||
+      !req.user.phone
+    ) {
+      throw new AppError(
+        "Complete student profile is required",
+        400
+      );
     }
 
     const validatedItems = [];
     const componentIds = new Set();
 
     for (const item of items) {
+      if (!item || typeof item !== "object") {
+        throw new AppError("Invalid cart item", 400);
+      }
+
       const { component, quantity } = item;
 
-      // Check component and quantity
-      if (!component || quantity === undefined) {
-        return res.status(400).json({
-          message: "Component and quantity are required for every item",
-        });
+      if (
+        typeof component !== "string" ||
+        !mongoose.isValidObjectId(component)
+      ) {
+        throw new AppError(
+          "Valid component ID is required",
+          400
+        );
       }
 
-      // Quantity must be positive integer
       if (
         typeof quantity !== "number" ||
-        !Number.isInteger(quantity) ||
+        !Number.isSafeInteger(quantity) ||
         quantity <= 0
       ) {
-        return res.status(400).json({
-          message: "Quantity must be a positive integer",
-        });
+        throw new AppError(
+          "Quantity must be a positive integer",
+          400
+        );
       }
 
-      // Prevent duplicate component in cart
-      if (componentIds.has(component.toString())) {
-        return res.status(400).json({
-          message: "Same component cannot be added multiple times",
-        });
+      const componentId = component.toLowerCase();
+
+      if (componentIds.has(componentId)) {
+        throw new AppError(
+          "Same component cannot appear twice in the cart",
+          400
+        );
       }
 
-      componentIds.add(component.toString());
+      componentIds.add(componentId);
 
-      // Find component
-      const componentData = await Component.findById(component);
+      const componentData =
+        await Component.findById(component);
 
       if (!componentData) {
-        return res.status(404).json({
-          message: "Component not found",
-        });
+        throw new AppError("Component not found", 404);
       }
 
-      // Check stock
       if (componentData.quantity < quantity) {
-        return res.status(400).json({
-          message: `Only ${componentData.quantity} ${componentData.name} are available`,
-        });
+        throw new AppError(
+          `Only ${componentData.quantity} ${componentData.name} available`,
+          400
+        );
       }
 
-      // Save snapshot
       validatedItems.push({
         component: componentData._id,
         componentName: componentData.name,
-        quantity: quantity,
+        quantity,
       });
     }
 
-    // Create issue request
     const issueRequest = await IssueRequest.create({
       user: req.user._id,
       name: req.user.name,
@@ -86,15 +131,18 @@ const createIssueRequest = async (req, res) => {
   } catch (error) {
     console.error("Create Issue Request Error:", error);
 
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
+    return res.status(error.statusCode || 500).json({
+      message:
+        error.statusCode
+          ? error.message
+          : "Server error while creating issue request",
     });
   }
 };
 
-
 // ================= GET ALL ISSUE REQUESTS =================
+// This endpoint must be admin-protected in routes.
+
 const getAllIssueRequests = async (req, res) => {
   try {
     const requests = await IssueRequest.find()
@@ -103,138 +151,220 @@ const getAllIssueRequests = async (req, res) => {
 
     return res.status(200).json({
       message: "Issue requests fetched successfully",
+      count: requests.length,
       requests,
     });
   } catch (error) {
-    console.error("Get Issue Requests Error:", error);
+    console.error("Get All Issue Requests Error:", error);
 
     return res.status(500).json({
       message: "Server error",
-      error: error.message,
     });
   }
 };
 
+// ================= GET MY ISSUE REQUESTS =================
+// Student can only see their own requests.
+
+const getMyIssueRequests = async (req, res) => {
+  try {
+    const requests = await IssueRequest.find({
+      user: req.user._id,
+    })
+      .populate("items.component", "name category")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Your issue requests fetched successfully",
+      count: requests.length,
+      requests,
+    });
+  } catch (error) {
+    console.error("Get My Issue Requests Error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
 
 // ================= APPROVE ISSUE REQUEST =================
+// All stock deductions and request changes happen in one
+// MongoDB transaction.
+
 const approveIssueRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const { id } = req.params;
 
-    const issueRequest = await IssueRequest.findById(id);
-
-    if (!issueRequest) {
-      return res.status(404).json({
-        message: "Issue request not found",
-      });
+    if (!mongoose.isValidObjectId(id)) {
+      throw new AppError("Invalid issue request ID", 400);
     }
 
-    // Only pending request can be approved
-    if (issueRequest.status !== "pending") {
-      return res.status(400).json({
-        message: `Request is already ${issueRequest.status}`,
-      });
-    }
+    let approvedRequest;
 
-    // ================= CHECK ALL STOCK FIRST =================
+    await session.withTransaction(async () => {
+      const issueRequest = await IssueRequest.findById(id)
+        .session(session);
 
-    const components = [];
-
-    for (const item of issueRequest.items) {
-      const component = await Component.findById(item.component);
-
-      if (!component) {
-        return res.status(404).json({
-          message: `${item.componentName} not found`,
-        });
+      if (!issueRequest) {
+        throw new AppError(
+          "Issue request not found",
+          404
+        );
       }
 
-      if (component.quantity < item.quantity) {
-        return res.status(400).json({
-          message: `Only ${component.quantity} ${component.name} are available`,
-        });
+      if (issueRequest.status !== "pending") {
+        throw new AppError(
+          `Request is already ${issueRequest.status}`,
+          400
+        );
       }
 
-      components.push({
-        component,
-        quantity: item.quantity,
-      });
-    }
+      if (
+        !Array.isArray(issueRequest.items) ||
+        issueRequest.items.length === 0
+      ) {
+        throw new AppError(
+          "Request has no components",
+          400
+        );
+      }
 
-    // ================= DEDUCT STOCK =================
+      // Deduct stock conditionally.
+      // If any item has insufficient stock, throw an error.
+      // The transaction will roll back every prior deduction.
 
-    for (const item of components) {
-      item.component.quantity -= item.quantity;
+      for (const item of issueRequest.items) {
+        const updatedComponent =
+          await Component.findOneAndUpdate(
+            {
+              _id: item.component,
+              quantity: { $gte: item.quantity },
+            },
+            {
+              $inc: { quantity: -item.quantity },
+            },
+            {
+              new: true,
+              session,
+              runValidators: true,
+            }
+          );
 
-      await item.component.save();
-    }
+        if (!updatedComponent) {
+          const exists = await Component.exists({
+            _id: item.component,
+          }).session(session);
 
-    // ================= UPDATE REQUEST =================
+          if (!exists) {
+            throw new AppError(
+              `${item.componentName} not found`,
+              404
+            );
+          }
 
-    const now = new Date();
+          throw new AppError(
+            `Insufficient stock for ${item.componentName}`,
+            400
+          );
+        }
+      }
 
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30);
+      const now = new Date();
+      const dueDate = new Date(now);
+      dueDate.setDate(dueDate.getDate() + 30);
 
-    issueRequest.status = "approved";
-    issueRequest.approvedAt = now;
-    issueRequest.approvedBy = req.user._id;
-    issueRequest.issuedAt = now;
-    issueRequest.dueDate = dueDate;
+      issueRequest.status = "approved";
+      issueRequest.approvedAt = now;
+      issueRequest.approvedBy = String(
+        req.user._id
+      );
+      issueRequest.issuedAt = now;
+      issueRequest.dueDate = dueDate;
 
-    await issueRequest.save();
+      await issueRequest.save({ session });
+
+      approvedRequest = issueRequest;
+    });
 
     return res.status(200).json({
       message: "Issue request approved successfully",
-      issueRequest,
+      issueRequest: approvedRequest,
     });
   } catch (error) {
     console.error("Approve Issue Request Error:", error);
 
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
+    return res.status(error.statusCode || 500).json({
+      message:
+        error.statusCode
+          ? error.message
+          : "Server error while approving request",
     });
+  } finally {
+    await session.endSession();
   }
 };
 
-
 // ================= REJECT ISSUE REQUEST =================
+
 const rejectIssueRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const { rejectionReason } = req.body;
 
-    const issueRequest = await IssueRequest.findById(id);
-
-    if (!issueRequest) {
-      return res.status(404).json({
-        message: "Issue request not found",
-      });
+    if (!mongoose.isValidObjectId(id)) {
+      throw new AppError("Invalid issue request ID", 400);
     }
 
-    // Only pending request can be rejected
-    if (issueRequest.status !== "pending") {
-      return res.status(400).json({
-        message: `Request is already ${issueRequest.status}`,
-      });
-    }
-
-    // Check rejection reason
     if (
       typeof rejectionReason !== "string" ||
       !rejectionReason.trim()
     ) {
-      return res.status(400).json({
-        message: "Rejection reason is required",
-      });
+      throw new AppError(
+        "Rejection reason is required",
+        400
+      );
     }
 
-    issueRequest.status = "rejected";
-    issueRequest.rejectedAt = new Date();
-    issueRequest.rejectionReason = rejectionReason.trim();
+    // Conditional update prevents two admins from
+    // rejecting/processing the same pending request.
 
-    await issueRequest.save();
+    const issueRequest =
+      await IssueRequest.findOneAndUpdate(
+        {
+          _id: id,
+          status: "pending",
+        },
+        {
+          $set: {
+            status: "rejected",
+            rejectedAt: new Date(),
+            rejectionReason: rejectionReason.trim(),
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+    if (!issueRequest) {
+      const existing = await IssueRequest.findById(id);
+
+      if (!existing) {
+        throw new AppError(
+          "Issue request not found",
+          404
+        );
+      }
+
+      throw new AppError(
+        `Request is already ${existing.status}`,
+        400
+      );
+    }
 
     return res.status(200).json({
       message: "Issue request rejected successfully",
@@ -243,87 +373,121 @@ const rejectIssueRequest = async (req, res) => {
   } catch (error) {
     console.error("Reject Issue Request Error:", error);
 
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
+    return res.status(error.statusCode || 500).json({
+      message:
+        error.statusCode
+          ? error.message
+          : "Server error while rejecting request",
     });
   }
 };
 
-
 // ================= RETURN ISSUE REQUEST =================
+// Stock restoration and status update are atomic.
+
 const returnIssueRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const { id } = req.params;
 
-    const issueRequest = await IssueRequest.findById(id);
-
-    if (!issueRequest) {
-      return res.status(404).json({
-        message: "Issue request not found",
-      });
+    if (!mongoose.isValidObjectId(id)) {
+      throw new AppError("Invalid issue request ID", 400);
     }
 
-    // Only approved request can be returned
-    if (issueRequest.status !== "approved") {
-      return res.status(400).json({
-        message: `Request cannot be returned because it is ${issueRequest.status}`,
-      });
-    }
+    let returnedRequest;
 
-    const components = [];
+    await session.withTransaction(async () => {
+      const issueRequest = await IssueRequest.findById(id)
+        .session(session);
 
-    // Find every component first
-    for (const item of issueRequest.items) {
-      const component = await Component.findById(item.component);
-
-      if (!component) {
-        return res.status(404).json({
-          message: `${item.componentName} not found`,
-        });
+      if (!issueRequest) {
+        throw new AppError(
+          "Issue request not found",
+          404
+        );
       }
 
-      components.push({
-        component,
-        quantity: item.quantity,
-      });
-    }
+      if (issueRequest.status !== "approved") {
+        throw new AppError(
+          `Request cannot be returned because it is ${issueRequest.status}`,
+          400
+        );
+      }
 
-    // Add stock back
-    for (const item of components) {
-      item.component.quantity += item.quantity;
+      if (
+        !Array.isArray(issueRequest.items) ||
+        issueRequest.items.length === 0
+      ) {
+        throw new AppError(
+          "Request has no components",
+          400
+        );
+      }
 
-      await item.component.save();
-    }
+      // Validate every referenced component before restoration.
 
-    // Update request
-    issueRequest.status = "returned";
-    issueRequest.returnedAt = new Date();
+      for (const item of issueRequest.items) {
+        const exists = await Component.exists({
+          _id: item.component,
+        }).session(session);
 
-    await issueRequest.save();
+        if (!exists) {
+          throw new AppError(
+            `${item.componentName} not found`,
+            404
+          );
+        }
+      }
+
+      // Restore every component's stock.
+
+      for (const item of issueRequest.items) {
+        await Component.updateOne(
+          { _id: item.component },
+          {
+            $inc: { quantity: item.quantity },
+          },
+          { session }
+        );
+      }
+
+      issueRequest.status = "returned";
+      issueRequest.returnedAt = new Date();
+
+      await issueRequest.save({ session });
+
+      returnedRequest = issueRequest;
+    });
 
     return res.status(200).json({
       message: "All components returned successfully",
-      issueRequest,
+      issueRequest: returnedRequest,
     });
   } catch (error) {
     console.error("Return Issue Request Error:", error);
 
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
+    return res.status(error.statusCode || 500).json({
+      message:
+        error.statusCode
+          ? error.message
+          : "Server error while returning components",
     });
+  } finally {
+    await session.endSession();
   }
-}
+};
+
+// ================= GET OVERDUE ISSUE REQUESTS =================
+// This endpoint must be admin-protected in routes.
+
 const getOverdueIssueRequests = async (req, res) => {
   try {
     const today = new Date();
 
     const overdueRequests = await IssueRequest.find({
       status: "approved",
-      dueDate: {
-        $lt: today,
-      },
+      dueDate: { $lt: today },
     })
       .populate("items.component", "name category quantity")
       .sort({ dueDate: 1 });
@@ -338,17 +502,16 @@ const getOverdueIssueRequests = async (req, res) => {
 
     return res.status(500).json({
       message: "Server error",
-      error: error.message,
     });
   }
 };
-
 
 // ================= EXPORT =================
 
 module.exports = {
   createIssueRequest,
   getAllIssueRequests,
+  getMyIssueRequests,
   approveIssueRequest,
   rejectIssueRequest,
   returnIssueRequest,
