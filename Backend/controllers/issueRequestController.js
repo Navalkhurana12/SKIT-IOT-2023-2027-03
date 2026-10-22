@@ -346,6 +346,105 @@ const getOverdueIssueRequests = async (req, res) => {
   }
 };
 
+/* ========== STUDENT USAGE REPORT ========== */
+
+const getStudentUsageReport = async (req, res) => {
+  try {
+    const today = new Date();
+
+    const requests = await IssueRequest.find()
+      .select(
+        "name rollNo phone items reason status requestedAt approvedAt issuedAt dueDate returnedAt"
+      )
+      .populate("items.component", "name category")
+      .sort({ rollNo: 1, createdAt: -1 })
+      .lean();
+
+    const studentsMap = new Map();
+
+    for (const request of requests) {
+      const key = request.rollNo;
+
+      if (!studentsMap.has(key)) {
+        studentsMap.set(key, {
+          name: request.name,
+          rollNo: request.rollNo,
+          phone: request.phone,
+          totalRequests: 0,
+          approvedRequests: 0,
+          returnedRequests: 0,
+          overdueRequests: 0,
+          components: [],
+        });
+      }
+
+      const student = studentsMap.get(key);
+
+      student.totalRequests++;
+
+      const isOverdue =
+        request.status === "approved" &&
+        request.dueDate &&
+        new Date(request.dueDate) < today;
+
+      if (request.status === "approved") {
+        student.approvedRequests++;
+      }
+
+      if (request.status === "returned") {
+        student.returnedRequests++;
+      }
+
+      if (isOverdue) {
+        student.overdueRequests++;
+      }
+
+      for (const item of request.items || []) {
+        student.components.push({
+          requestId: request._id,
+          componentId: item.component?._id || item.component || null,
+          componentName:
+            item.componentName ||
+            item.component?.name ||
+            "Deleted component",
+          category: item.component?.category || null,
+          quantity: item.quantity,
+          status: request.status,
+          requestedAt: request.requestedAt,
+          issuedAt: request.issuedAt || null,
+          dueDate: request.dueDate || null,
+          returnedAt: request.returnedAt || null,
+          isOverdue: Boolean(isOverdue),
+        });
+      }
+    }
+
+    const students = Array.from(studentsMap.values());
+
+    return res.status(200).json({
+      message: "Student usage report fetched successfully",
+      summary: {
+        totalStudents: students.length,
+        totalRequests: requests.length,
+        overdueRequests: requests.filter(
+          (request) =>
+            request.status === "approved" &&
+            request.dueDate &&
+            new Date(request.dueDate) < today
+        ).length,
+      },
+      students,
+    });
+  } catch (error) {
+    console.error("Student Usage Report Error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 
 // ================= EXPORT =================
 
@@ -356,4 +455,5 @@ module.exports = {
   rejectIssueRequest,
   returnIssueRequest,
   getOverdueIssueRequests,
+  getStudentUsageReport,
 };
