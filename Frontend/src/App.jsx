@@ -48,93 +48,60 @@ function App() {
 
       <Footer />
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+      <section
+        id="inventory"
+        className="scroll-mt-24 border-t border-slate-200 bg-slate-50 px-5 py-16 sm:px-8 lg:px-12"
+      >
+        <div className="mx-auto max-w-5xl text-center">
+          <Package className="mx-auto mb-4 text-blue-600" size={32} />
+          <h2 className="text-3xl font-bold text-[#102C57]">Inventory</h2>
+          <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">
+            Manage IoT components, track stock availability and monitor
+            equipment issued to student projects.
+          </p>
+          <button
+            onClick={() => alert("Inventory management coming soon!")}
+            className="mt-6 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Open Inventory
+          </button>
         </div>
       </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <section
+        id="iot-lab"
+        className="scroll-mt-24 border-t border-slate-200 bg-white px-5 py-16 sm:px-8 lg:px-12"
+      >
+        <div className="mx-auto max-w-5xl text-center">
+          <Cpu className="mx-auto mb-4 text-blue-600" size={32} />
+          <h2 className="text-3xl font-bold text-[#102C57]">IoT Lab</h2>
+          <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">
+            Explore laboratory facilities, equipment resources and
+            lab activities.
+          </p>
+        </div>
+      </section>
+
+      {/* ================= FOOTER =================
+
+      <footer className="bg-[#102C57] px-5 py-8 text-white sm:px-8 lg:px-12">
+        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-4 text-center text-xs text-blue-100 sm:flex-row sm:text-left">
+          <p>
+            © 2026 SKIT IoT Lab. All rights reserved.
+          </p>
+
+          <p>
+            Swami Keshvanand Institute of Technology, Jaipur
+          </p>
+
+          <p className="italic text-blue-200">
+            Innovating for a Smarter Tomorrow
+          </p>
+        </div>
+      </footer> */}
+
+    </div>
+  );
 }
 
-export default App
+export default App;

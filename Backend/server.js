@@ -1,30 +1,40 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+
 require("dotenv").config({ override: true });
 
+const connectDB = require("./config/db");
+
+const authRoutes = require("./routes/authRoutes");
 const componentRoutes = require("./routes/componentRoutes");
-const { MongodbConfig } = require("./config/db");
+const issueRequestRoutes = require("./routes/issueRequestRoutes");
 
 const app = express();
 
+// Connect Database
+connectDB();
+
 // Middleware
+app.use(cookieParser());
 app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/components", componentRoutes);
+app.use("/api/issue-requests", issueRequestRoutes);
+
+// Root route
 app.get("/", (req, res) => {
   res.json({
-    message: "IoT Inventory API is running"
+    message: "IoT Inventory API is running",
   });
 });
 
-app.use("/api/components", componentRoutes);
+// Server
+const PORT = process.env.PORT || 8000;
 
-
-const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  MongodbConfig();
-  console.log(`The server is running on PORT ${PORT}`)
+  console.log(`Server running on port ${PORT}`);
 });
-
