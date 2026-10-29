@@ -1,34 +1,52 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import Navbar from "./components/navbar";
+import Hero from "./components/Hero";
+import FeatureCards from "./components/FeatureCards";
+import QuickStats from "./components/quickStats";
+import UpcomingEvents from "./components/UpcomingEvents";
+import FeaturedProjects from "./components/FeaturedProjects";
+import AboutSection from "./components/AboutSection";
+import InventorySection from "./components/InventorySection";
+import IotLabSection from "./components/IotLabSection";
+import Footer from "./components/Footer";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+
+      <Navbar />
+
+      <main>
+        <Hero />
+
+        <FeatureCards />
+
+        {/* Dashboard Overview */}
+
+        <section className="mx-auto max-w-[1600px] px-5 pb-12 sm:px-8 lg:px-12">
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1.2fr_1.2fr]">
+
+            <QuickStats />
+
+            <UpcomingEvents />
+
+            <FeaturedProjects />
+
+          </div>
+
+        </section>
+
+        {/* Other Sections */}
+
+        <AboutSection />
+
+        <InventorySection />
+
+        <IotLabSection />
+
+      </main>
+
+      <Footer />
 
       <div className="ticks"></div>
 
