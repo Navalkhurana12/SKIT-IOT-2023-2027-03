@@ -1,10 +1,11 @@
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
 require("dotenv").config({ override: true });
 
-const connectDB = require("./config/db");
+const { MongodbConfig } = require("./config/db");
 
 const authRoutes = require("./routes/authRoutes");
 const componentRoutes = require("./routes/componentRoutes");
@@ -12,12 +13,14 @@ const issueRequestRoutes = require("./routes/issueRequestRoutes");
 
 const app = express();
 
-// Connect Database
-connectDB();
-
 // Middleware
 app.use(cookieParser());
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Routes
@@ -32,9 +35,20 @@ app.get("/", (req, res) => {
   });
 });
 
-// Server
+// Start server after MongoDB connects
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await MongodbConfig();
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

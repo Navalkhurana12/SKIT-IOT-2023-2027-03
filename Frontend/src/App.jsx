@@ -14,16 +14,20 @@ import {
   UserRound,
   Boxes,
   Users,
-  ChevronRight,
   MapPin,
   Clock,
 } from "lucide-react";
 
 import logo from "./assets/logo.png";
 import skitImage from "./assets/SKIT.jpeg";
+import { Routes, Route, useNavigate } from "react-router-dom";
+import Login from "./pages/Login";
 
-function App() {
+// ================= HOME PAGE =================
+
+function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const navItems = [
     { name: "Home", id: "home", icon: Home },
@@ -80,26 +84,10 @@ function App() {
   ];
 
   const stats = [
-    {
-      title: "Total Inventory Items",
-      value: "248",
-      icon: Package,
-    },
-    {
-      title: "Active Projects",
-      value: "24",
-      icon: FolderKanban,
-    },
-    {
-      title: "Upcoming Events",
-      value: "5",
-      icon: CalendarDays,
-    },
-    {
-      title: "Registered Users",
-      value: "120+",
-      icon: Users,
-    },
+    { title: "Total Inventory Items", value: "248", icon: Package },
+    { title: "Active Projects", value: "24", icon: FolderKanban },
+    { title: "Upcoming Events", value: "5", icon: CalendarDays },
+    { title: "Registered Users", value: "120+", icon: Users },
   ];
 
   const events = [
@@ -132,7 +120,8 @@ function App() {
   const projects = [
     {
       title: "Smart Irrigation System",
-      description: "Automated plant watering using soil moisture sensors and IoT.",
+      description:
+        "Automated plant watering using soil moisture sensors and IoT.",
       status: "In Progress",
       icon: "🌱",
     },
@@ -144,7 +133,8 @@ function App() {
     },
     {
       title: "Weather Monitoring Station",
-      description: "Real-time temperature, humidity and weather data collection.",
+      description:
+        "Real-time temperature, humidity and weather data collection.",
       status: "In Progress",
       icon: "🌤️",
     },
@@ -174,12 +164,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-
       {/* ================= NAVBAR ================= */}
 
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-3 sm:px-8 lg:px-12">
-
           {/* Logo and College Name */}
 
           <button
@@ -239,7 +227,7 @@ function App() {
             </button>
 
             <button
-              onClick={() => alert("Login page coming soon!")}
+              onClick={() => navigate("/login")}
               className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
             >
               <UserRound size={16} />
@@ -256,7 +244,6 @@ function App() {
           >
             {menuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
-
         </div>
 
         {/* Mobile Navigation */}
@@ -280,7 +267,10 @@ function App() {
               })}
 
               <button
-                onClick={() => alert("Login page coming soon!")}
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate("/login");
+                }}
                 className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
               >
                 <UserRound size={17} />
@@ -295,58 +285,48 @@ function App() {
 
       <section
         id="home"
-        className="relative isolate flex min-h-[540px] items-center overflow-hidden bg-[#092854] lg:min-h-[500px]"
+        className="hero-section relative isolate flex min-h-[540px] items-center overflow-hidden lg:min-h-[540px]"
       >
-        {/* Background Image */}
-
         <img
-          src={skitImage}
-          alt="SKIT College Campus"
+          src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=2000&q=90"
+          alt="Electronic circuit board and IoT hardware"
           className="absolute inset-0 -z-20 h-full w-full object-cover"
         />
 
-        {/* Dark Overlay */}
-
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#031b43]/95 via-[#062b59]/80 to-[#062b59]/25" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#06172f]/95 via-[#0b2850]/85 to-[#0b2850]/20" />
 
         <div className="mx-auto w-full max-w-[1600px] px-5 py-20 sm:px-10 lg:px-16">
-
           <div className="max-w-3xl text-white">
-
-            {/* Badge */}
-
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-300/30 bg-blue-500/30 px-4 py-2 text-sm font-medium backdrop-blur-sm">
-              <Cpu size={18} className="text-blue-200" />
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 backdrop-blur-md">
+              <Cpu size={18} />
               SKIT IoT Lab
+              <span className="mx-1 text-cyan-400">•</span>
+              <span className="text-emerald-300">Innovation Hub</span>
             </div>
 
-            {/* Heading */}
-
-            <h2 className="text-4xl font-bold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl">
-              Welcome to the
-              <span className="mt-2 block text-blue-400">
-                IoT Inventory
-                <br className="hidden sm:block" />
+            <h2 className="text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl">
+              IoT Inventory
+              <span className="block bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
                 Management System
               </span>
             </h2>
 
-            {/* Description */}
+            <h3 className="mt-5 text-xl font-semibold text-blue-100 sm:text-2xl">
+              Smart Inventory. Smarter Campus.
+            </h3>
 
-            <p className="mt-6 max-w-2xl text-base leading-7 text-blue-50/90 sm:text-lg">
-              Manage your IoT components, explore student projects,
-              track upcoming events and make the most of our IoT lab
-              resources — all in one place.
+            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
+              Manage IoT components, track inventory, and streamline access
+              for students and faculty at SKIT.
             </p>
-
-            {/* Buttons */}
 
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <button
                 onClick={() => scrollToSection("inventory")}
-                className="group flex items-center gap-3 rounded-full bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
+                className="group flex items-center gap-3 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-950/40 transition hover:-translate-y-1 hover:shadow-cyan-500/30"
               >
-                Explore Now
+                <Package size={18} />
+                Explore Components
                 <ArrowRight
                   size={18}
                   className="transition-transform group-hover:translate-x-1"
@@ -355,12 +335,11 @@ function App() {
 
               <button
                 onClick={() => scrollToSection("about")}
-                className="rounded-full border border-white/60 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white hover:text-blue-900"
+                className="flex items-center gap-2 rounded-full border border-white/50 bg-white/10 px-7 py-3.5 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white hover:text-[#0b1f3a]"
               >
                 Learn More
               </button>
             </div>
-
           </div>
         </div>
       </section>
@@ -369,7 +348,6 @@ function App() {
 
       <section className="mx-auto max-w-[1600px] px-5 py-10 sm:px-8 lg:px-12">
         <div className="grid grid-cols-1 gap-5 min-[500px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-
           {features.map((feature) => {
             const Icon = feature.icon;
 
@@ -403,7 +381,6 @@ function App() {
               </button>
             );
           })}
-
         </div>
       </section>
 
@@ -411,7 +388,6 @@ function App() {
 
       <section className="mx-auto max-w-[1600px] px-5 pb-12 sm:px-8 lg:px-12">
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1.2fr_1.2fr]">
-
           {/* Quick Stats */}
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -432,11 +408,9 @@ function App() {
                     className="border-b border-slate-100 pb-4"
                   >
                     <Icon size={22} className="mb-3 text-blue-600" />
-
                     <p className="text-2xl font-bold text-[#102C57]">
                       {stat.value}
                     </p>
-
                     <p className="mt-1 text-xs leading-5 text-slate-500">
                       {stat.title}
                     </p>
@@ -477,7 +451,9 @@ function App() {
                 >
                   <div className="flex h-[66px] w-[58px] shrink-0 flex-col items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                     <span className="text-xl font-bold">{event.date}</span>
-                    <span className="text-[10px] font-bold">{event.month}</span>
+                    <span className="text-[10px] font-bold">
+                      {event.month}
+                    </span>
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -558,11 +534,10 @@ function App() {
               ))}
             </div>
           </div>
-
         </div>
       </section>
 
-      {/* ================= PLACEHOLDER MODULE SECTIONS ================= */}
+      {/* ================= ABOUT US ================= */}
 
       <section
         id="about"
@@ -572,11 +547,13 @@ function App() {
           <Info className="mx-auto mb-4 text-blue-600" size={32} />
           <h2 className="text-3xl font-bold text-[#102C57]">About Us</h2>
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">
-            The SKIT IoT Lab supports hands-on learning, experimentation
-            and innovation in Internet of Things technologies.
+            The SKIT IoT Lab supports hands-on learning, experimentation and
+            innovation in Internet of Things technologies.
           </p>
         </div>
       </section>
+
+      {/* ================= INVENTORY ================= */}
 
       <section
         id="inventory"
@@ -589,6 +566,7 @@ function App() {
             Manage IoT components, track stock availability and monitor
             equipment issued to student projects.
           </p>
+
           <button
             onClick={() => alert("Inventory management coming soon!")}
             className="mt-6 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
@@ -598,6 +576,8 @@ function App() {
         </div>
       </section>
 
+      {/* ================= IOT LAB ================= */}
+
       <section
         id="iot-lab"
         className="scroll-mt-24 border-t border-slate-200 bg-white px-5 py-16 sm:px-8 lg:px-12"
@@ -606,31 +586,23 @@ function App() {
           <Cpu className="mx-auto mb-4 text-blue-600" size={32} />
           <h2 className="text-3xl font-bold text-[#102C57]">IoT Lab</h2>
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">
-            Explore laboratory facilities, equipment resources and
-            lab activities.
+            Explore laboratory facilities, equipment resources and lab
+            activities.
           </p>
         </div>
       </section>
-
-      {/* ================= FOOTER =================
-
-      <footer className="bg-[#102C57] px-5 py-8 text-white sm:px-8 lg:px-12">
-        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-4 text-center text-xs text-blue-100 sm:flex-row sm:text-left">
-          <p>
-            © 2026 SKIT IoT Lab. All rights reserved.
-          </p>
-
-          <p>
-            Swami Keshvanand Institute of Technology, Jaipur
-          </p>
-
-          <p className="italic text-blue-200">
-            Innovating for a Smarter Tomorrow
-          </p>
-        </div>
-      </footer> */}
-
     </div>
+  );
+}
+
+// ================= APP ROUTES =================
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<Login />} />
+    </Routes>
   );
 }
 
