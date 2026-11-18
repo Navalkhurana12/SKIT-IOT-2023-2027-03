@@ -1,3 +1,4 @@
+
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const sendOTPEmail = require("../utils/sendEmail");
@@ -53,22 +54,24 @@ const signup = async (req, res) => {
     } = req.body;
 
     // Check required fields
-    if (!name || !rollNo || !email || !password||!phone) {
+    if (!name || !rollNo || !email || !password || !phone) {
       return res.status(400).json({
         success: false,
         message:
-          "Please provide name, roll number, email , phone Number and password",
+          "Please provide name, roll number, email, phone number and password",
       });
     }
+
     const normalizedPhone = phone.trim();
     const phoneRegex = /^[6-9]\d{9}$/;
 
     if (!phoneRegex.test(normalizedPhone)) {
-  return res.status(400).json({
-    success: false,
-    message: "Phone number must be 10 digits and start with 6-9",
-  });
+      return res.status(400).json({
+        success: false,
+        message: "Phone number must be 10 digits and start with 6-9",
+      });
     }
+
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -88,7 +91,7 @@ const signup = async (req, res) => {
       $or: [
         { email: normalizedEmail },
         { rollNo: normalizedRollNo },
-        {phone: normalizedPhone}
+        { phone: normalizedPhone },
       ],
     });
 
@@ -96,7 +99,7 @@ const signup = async (req, res) => {
       return res.status(409).json({
         success: false,
         message:
-          "User with this email or roll number or phoneNumber  already exists",
+          "User with this email or roll number or phone number already exists",
       });
     }
 
@@ -123,7 +126,6 @@ const signup = async (req, res) => {
       role: "user",
 
       isVerified: false,
-
       otp,
       otpExpires,
     });
@@ -133,8 +135,7 @@ const signup = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message:
-        "Account created. OTP sent to your college email.",
+      message: "Account created. OTP sent to your college email.",
     });
 
   } catch (error) {
@@ -215,9 +216,22 @@ const verifyOTP = async (req, res) => {
 
     await user.save();
 
+    // Generate JWT and set HTTP-only cookie
+    sendToken(res, user._id.toString(), user.role);
+
     return res.status(200).json({
       success: true,
       message: "Email verified successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        rollNo: user.rollNo,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+        role: user.role,
+        isVerified: user.isVerified,
+      },
     });
 
   } catch (error) {
@@ -234,30 +248,34 @@ const verifyOTP = async (req, res) => {
 // LOGIN
 // ======================================================
 
+
 const login = async (req, res) => {
   try {
-    const {
-      email,
-      password,
-      role,
-    } = req.body;
+    const { email, password } = req.body;
 
-    // ==================================================
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // =====================================
     // ADMIN LOGIN
-    // ==================================================
+    // =====================================
 
-    if (role === "admin") {
-      if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: "Email and password are required",
-        });
-      }
+    const adminEmail = (process.env.ADMIN_ID || "")
+      .toLowerCase()
+      .trim();
 
-      if (
-        email !== process.env.ADMIN_ID ||
-        password !== process.env.ADMIN_PASSWORD
-      ) {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    // Admin is identified by configured email.
+    // Frontend does not need to send role.
+    if (normalizedEmail === adminEmail && adminEmail) {
+      if (password !== adminPassword) {
         return res.status(401).json({
           success: false,
           message: "Invalid admin credentials",
@@ -279,21 +297,10 @@ const login = async (req, res) => {
       });
     }
 
-    // ==================================================
-    // NORMAL USER LOGIN
-    // ==================================================
+    // =====================================
+    // STUDENT LOGIN
+    // =====================================
 
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Password is select:false in User.js
-    // So explicitly select it
     const user = await User.findOne({
       email: normalizedEmail,
     }).select("+password");
@@ -305,7 +312,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Make sure this is a normal user
     if (user.role !== "user") {
       return res.status(401).json({
         success: false,
@@ -313,7 +319,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Check password
     const isPasswordCorrect =
       await user.matchPassword(password);
 
@@ -324,21 +329,14 @@ const login = async (req, res) => {
       });
     }
 
-    // Check email verification
     if (!user.isVerified) {
       return res.status(403).json({
         success: false,
-        message:
-          "Please verify your college email first",
+        message: "Please verify your college email first",
       });
     }
 
-    // Generate JWT
-    sendToken(
-      res,
-      user._id.toString(),
-      user.role
-    );
+    sendToken(res, user._id.toString(), user.role);
 
     return res.status(200).json({
       success: true,

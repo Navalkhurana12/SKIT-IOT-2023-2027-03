@@ -1,5 +1,7 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+
 import {
   Menu,
   X,
@@ -19,9 +21,17 @@ import {
 } from "lucide-react";
 
 import logo from "./assets/logo.png";
-import skitImage from "./assets/SKIT.jpeg";
-import { Routes, Route, useNavigate } from "react-router-dom";
+
+import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import StudentDashboard from "./pages/StudentDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
+import VerifyOTP from "./pages/VerifyOtp";
+
+import api from "./services/api";
+import { setCredentials, logoutUser } from "./features/auth/authSlice";
 
 // ================= HOME PAGE =================
 
@@ -164,11 +174,11 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
+
       {/* ================= NAVBAR ================= */}
 
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-3 sm:px-8 lg:px-12">
-          {/* Logo and College Name */}
 
           <button
             onClick={() => scrollToSection("home")}
@@ -188,7 +198,7 @@ function HomePage() {
               </h1>
 
               <p className="mt-1 text-[9px] tracking-wide text-slate-500 sm:text-[10px]">
-                Technology&nbsp; | &nbsp;Innovation&nbsp; | &nbsp;Excellence
+                Technology | Innovation | Excellence
               </p>
             </div>
 
@@ -297,6 +307,7 @@ function HomePage() {
 
         <div className="mx-auto w-full max-w-[1600px] px-5 py-20 sm:px-10 lg:px-16">
           <div className="max-w-3xl text-white">
+
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 backdrop-blur-md">
               <Cpu size={18} />
               SKIT IoT Lab
@@ -388,6 +399,7 @@ function HomePage() {
 
       <section className="mx-auto max-w-[1600px] px-5 pb-12 sm:px-8 lg:px-12">
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1.2fr_1.2fr]">
+
           {/* Quick Stats */}
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -568,7 +580,7 @@ function HomePage() {
           </p>
 
           <button
-            onClick={() => alert("Inventory management coming soon!")}
+            onClick={() => navigate("/login")}
             className="mt-6 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
           >
             Open Inventory
@@ -598,10 +610,106 @@ function HomePage() {
 // ================= APP ROUTES =================
 
 function App() {
+  const dispatch = useDispatch();
+  const { user, loading } = useSelector((state) => state.auth);
+
+  // Restore the logged-in user when the page is refreshed.
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const response = await api.get("/auth/me");
+
+        const loggedInUser =
+          response.data?.user ||
+          response.data?.data?.user ||
+          response.data;
+
+        if (
+          loggedInUser &&
+          ["admin", "user"].includes(loggedInUser.role)
+        ) {
+          dispatch(setCredentials(loggedInUser));
+        } else {
+          dispatch(logoutUser());
+        }
+      } catch (error) {
+        // A 401 means there is no valid login session.
+        console.log(
+          "Session restoration:",
+          error.response?.data?.message || error.message
+        );
+        dispatch(logoutUser());
+      }
+    };
+
+    restoreSession();
+  }, [dispatch]);
+
   return (
     <Routes>
+      {/* Public Home Page */}
       <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<Login />} />
+
+      {/* Login */}
+      <Route
+        path="/login"
+        element={
+          loading ? (
+            <div className="flex min-h-screen items-center justify-center">
+              Checking session...
+            </div>
+          ) : user ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Login />
+          )
+        }
+      />
+
+      {/* Signup */}
+      <Route
+        path="/signup"
+        element={
+          loading ? (
+            <div className="flex min-h-screen items-center justify-center">
+              Checking session...
+            </div>
+          ) : user ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Signup />
+          )
+        }
+      />
+
+      {/* OTP Verification */}
+      <Route path="/verify-otp" element={<VerifyOTP />} />
+
+      {/* Role-based Dashboard */}
+      <Route
+        path="/dashboard"
+        element={
+          loading ? (
+            <div className="flex min-h-screen items-center justify-center">
+              <div className="text-center">
+                <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                <p className="text-slate-600">
+                  Checking authentication...
+                </p>
+              </div>
+            </div>
+          ) : user?.role === "admin" ? (
+            <AdminDashboard />
+          ) : user?.role === "user" ? (
+            <StudentDashboard />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* Unknown URL */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
